@@ -10,6 +10,10 @@ To address the key technical requirements outlined for the project:
     *   **Recommendation:** Use **LiteLLM**. It provides a unified, drop-in replacement for the OpenAI API that supports OpenAI, Gemini, Claude, DeepSeek, and local models (via Ollama). You can change the underlying provider simply by updating environment variables and the model string.
 *   **Guaranteed Structured Format:**
     *   **Recommendation:** Use the **Instructor** library alongside LiteLLM (or LiteLLM's built-in structured output support). Instructor patches the LLM client to guarantee responses adhere strictly to a predefined **Pydantic** model. This ensures the generated plan and tasks are always valid JSON matching our exact schema.
+*   **True MCP Server Architecture:**
+    *   **Refactoring Need:** The current implementation has fragmented tool logic (schemas in models, instructions in system prompts, execution in services). This will be refactored into a proper Model Context Protocol (MCP) server structure. Each tool will be a self-contained class/module containing its own Pydantic parameters, descriptive metadata (for the LLM), and execution logic.
+*   **Anti-Hallucination Guardrails:**
+    *   **Requirement:** Since only a subset of Discord actions are currently implemented, the system prompt must explicitly restrict the LLM to *only* use the tools explicitly provided in the schema. If a user requests an unsupported action, the LLM must be instructed to clearly inform the user that the tool is unavailable, rather than hallucinating a fake action.
 *   **Robust Task Execution & Failure Handling:**
     *   **Recommendation:** Implement an **Agentic Execution Loop**. If a task fails (e.g., a Discord API error due to missing permissions or rate limits), the error is caught and fed back into the LLM along with the remaining unexecuted plan. The LLM generates a "Correction Plan" (modifying, appending, or removing tasks). The bot then presents this new sub-plan to the user for approval before resuming execution.
 
@@ -21,7 +25,8 @@ To address the key technical requirements outlined for the project:
 3.  **Review:** The bot sends an Embed explicitly titled **[Plan-Mode]**. It details the overarching plan and lists the sequence of tasks.
 4.  **User Actions (Buttons):**
     *   **Proceed:** Transitions the bot into Execution-Mode.
-    *   **Suggest Changes:** Opens a Discord Modal for the admin to type adjustments. The new input, along with the original plan, is sent back to the LLM to generate an updated plan.
+    *   **Suggest Changes:** Opens a Discord Modal for the admin to type adjustments. 
+        *   *UX Improvement:* The bot will use a **`RevisedPlan`** Pydantic model. This model will include the updated plan *and* an `explanation` field where the AI directly answers the user's questions or explains how the suggestions were incorporated. This provides crucial context before the user accepts the new plan.
     *   **Cancel:** Aborts the operation and deletes the message.
 
 ### Phase 2: Execution-Mode

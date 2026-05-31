@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord import option
 from .prompt_service import PromptService
 from .prompt_ui import PlanReviewView, SuggestionModal, TaskVerificationView, create_plan_embed, create_task_embed
-from .models import ExecutionPlan
+from .models.base import ExecutionPlan, RevisedPlan, Task
 
 class PromptCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -16,14 +16,11 @@ class PromptCog(commands.Cog):
     @option("prompt", description="Describe what you want to do (e.g., 'Create a category named Core...')")
     async def prompt(self, ctx: discord.ApplicationContext, prompt: str):
         self.logger.info(f"Received prompt from {ctx.author}: {prompt}")
-        # 1. Thinking state
         await ctx.defer()
         
-        # 2. Get context (simplified for now)
         context = self._get_guild_context(ctx.guild)
         self.logger.debug(f"Guild context: {context}")
         
-        # 3. Generate plan
         try:
             self.logger.info("Generating execution plan...")
             plan = await self.service.generate_plan(prompt, context)
@@ -36,18 +33,17 @@ class PromptCog(commands.Cog):
             await ctx.respond(f"Error generating plan: {error_msg}", ephemeral=True)
             return
 
-        # 4. Enter Plan-Mode Review
         await self._enter_plan_mode(ctx, plan)
 
     def _get_guild_context(self, guild: discord.Guild) -> str:
-        # TODO: Implement more robust context gathering (channels, roles, etc.)
         return f"Guild Name: {guild.name}, Member Count: {guild.member_count}"
 
-    async def _enter_plan_mode(self, ctx: discord.ApplicationContext, plan: ExecutionPlan):
+    async def _enter_plan_mode(self, ctx: discord.ApplicationContext | discord.Interaction, plan: ExecutionPlan, explanation: str = None):
         embed = create_plan_embed(plan)
+        content = f"**AI Explanation:** {explanation}" if explanation else ""
         
         async def on_proceed(interaction: discord.Interaction):
-            await interaction.response.edit_message(content="Entering Execution-Mode...", view=None)
+            await interaction.response.edit_message(content="Entering Execution-Mode...", embed=None, view=None)
             await self._start_execution(interaction, plan)
 
         async def on_suggest(interaction: discord.Interaction):
@@ -58,21 +54,21 @@ class PromptCog(commands.Cog):
             await interaction.response.edit_message(content="Operation cancelled.", embed=None, view=None)
 
         view = PlanReviewView(on_proceed, on_suggest, on_cancel)
-        await ctx.respond(embed=embed, view=view)
+        if isinstance(ctx, discord.ApplicationContext):
+            await ctx.respond(content=content, embed=embed, view=view)
+        else:
+            await ctx.edit_original_response(content=content, embed=embed, view=view)
 
     async def _on_suggestion_submit(self, interaction: discord.Interaction, original_plan: ExecutionPlan, suggestion: str):
-        # 1. Thinking state for refinement
         await interaction.edit_original_response(content="Refining plan...", embed=None, view=None)
         
-        # 2. Refine plan
         try:
-            new_plan = await self.service.refine_plan(original_plan, suggestion)
+            revised = await self.service.refine_plan(original_plan, suggestion)
         except Exception as e:
             await interaction.edit_original_response(content=f"Error refining plan: {e}")
             return
 
-        # 3. Back to Plan-Mode Review
-        await self._enter_plan_mode(interaction, new_plan)
+        await self._enter_plan_mode(interaction, revised.plan, explanation=revised.explanation)
 
     async def _start_execution(self, interaction: discord.Interaction, plan: ExecutionPlan):
         self._current_plan = plan
@@ -94,23 +90,22 @@ class PromptCog(commands.Cog):
         embed = create_task_embed(task, len(self._current_plan.tasks))
 
         async def on_accept(inter: discord.Interaction):
-            await inter.response.edit_message(content=f"Executing Task {task.order}...", view=None)
+            await inter.response.edit_message(content=f"Executing Task {task.order}...", embed=None, view=None)
             await self._run_task(inter, task)
 
         async def on_accept_all(inter: discord.Interaction):
             self._accept_all = True
-            await inter.response.edit_message(content="Executing all remaining tasks...", view=None)
+            await inter.response.edit_message(content="Executing all remaining tasks...", embed=None, view=None)
             await self._run_task(inter, task)
 
         async def on_reject(inter: discord.Interaction):
-            # TODO: Implement partial plan refinement
             await inter.response.send_message("Reject/Refine is not yet implemented for execution mode.", ephemeral=True)
 
         async def on_cancel(inter: discord.Interaction):
             await inter.response.edit_message(content="Execution cancelled.", embed=None, view=None)
 
         view = TaskVerificationView(on_accept, on_accept_all, on_reject, on_cancel)
-        await interaction.edit_original_response(embed=embed, view=view)
+        await interaction.edit_original_response(content="", embed=embed, view=view)
 
     async def _run_task(self, interaction: discord.Interaction, task: Task):
         await self._run_task_real(interaction, task)
@@ -121,7 +116,6 @@ class PromptCog(commands.Cog):
             self._current_task_index += 1
             await self._execute_next_task(interaction)
         except Exception as e:
-            # TODO: Implement Agentic Recovery Loop
             await interaction.edit_original_response(content=f"Error executing task {task.order}: {e}\nStopping execution.")
 
 def setup(bot: commands.Bot):

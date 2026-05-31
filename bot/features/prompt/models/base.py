@@ -1,17 +1,24 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Union, Literal, Dict
-from .shared import PermissionOverwrite
-from .actions import CreateRoleParams, CreateCategoryParams, CreateChannelParams, DeleteParams
+from typing import List, Union, Dict, Any
+from ..mcp import registry
+
+# Extract all tool schemas to build the union for Task parameters
+tool_schemas = tuple(tool.schema for tool in registry.get_all_tools())
+ParamsUnion = Union[*tool_schemas] if tool_schemas else Dict[str, Any]
 
 class Task(BaseModel):
     order: int
-    action: Literal["create_role", "create_category", "create_channel", "delete_channel", "delete_role", "assign_role", "remove_role"]
+    action: str = Field(..., description="The name of the action to perform.")
     description: str = Field(..., description="A short, human-readable description of what this task does.")
-    parameters: Union[CreateRoleParams, CreateCategoryParams, CreateChannelParams, DeleteParams, Dict] = Field(
+    parameters: ParamsUnion = Field(
         ..., 
-        description="Action-specific parameters. MUST be nested inside this dictionary."
+        description="Action-specific parameters. MUST be nested inside this dictionary and match the schema for the chosen action."
     )
 
 class ExecutionPlan(BaseModel):
     summary: str = Field(..., description="A concise summary of the entire plan.")
     tasks: List[Task] = Field(..., description="A list of tasks ordered by their execution sequence.")
+
+class RevisedPlan(BaseModel):
+    explanation: str = Field(..., description="Explanation of how the user's suggestions were incorporated or answers to their questions.")
+    plan: ExecutionPlan
