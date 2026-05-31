@@ -6,8 +6,11 @@ readme = "readme.rst"
 requires-python = ">=3.13"
 dependencies = [
     "audioop-lts>=0.2.2",
+    "instructor>=1.15.1",
+    "litellm>=1.86.2",
     "motor>=3.7.1",
     "py-cord[voice]>=2.8.0",
+    "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
 ]
 [tool.pyright]

@@ -26,6 +26,7 @@ class BotSubclass(commands.Bot):
             "event": "basic_cogs.event",
             "reloader": "basic_cogs.reloader",
             "example": "basic_cogs.example",
+            "prompt": "features.prompt.prompt_cog",
         }
         self._intents = discord.Intents().all()
 
