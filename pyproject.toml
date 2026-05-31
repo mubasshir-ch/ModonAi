@@ -1,0 +1,15 @@
+[project]
+name = "ModonAi"
+version = "0.1.0"
+description = "A discord AI agent that lets you moderate, make changes to your discord server by prompting."
+readme = "readme.rst"
+requires-python = ">=3.13"
+dependencies = [
+    "audioop-lts>=0.2.2",
+    "motor>=3.7.1",
+    "py-cord[voice]>=2.8.0",
+    "python-dotenv>=1.2.2",
+]
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
