@@ -19,17 +19,22 @@ To address the key technical requirements outlined for the project:
 
 ## 3. Interaction Flow
 
-### Phase 1: Plan-Mode
+### Phase 1: Investigation (Read-Only Autonomy)
+*To solve the "Data Dependency Problem" where the AI needs to fetch data (e.g., list roles) before it can use that data in a mutation task (e.g., sending a message with those roles), the interaction flow begins with an autonomous investigation phase.*
 1.  **Trigger:** Admin executes `/prompt <instructions>`.
-2.  **Processing:** The bot displays a "thinking" state. The prompt is sent to the LLM to generate a structured plan of Discord MCP actions. The LLM is strictly instructed via system prompt to order tasks logically (e.g., roles must be created before channels that assign permissions to those roles).
-3.  **Review:** The bot sends an Embed explicitly titled **[Plan-Mode]**. It details the overarching plan and lists the sequence of tasks.
-4.  **User Actions (Buttons):**
+2.  **Autonomous Retrieval:** The bot enters a ReAct (Reasoning and Acting) loop where it is **only** allowed to use "Retrieval/Read-Only" MCP tools (e.g., `list_roles`, `get_channel_info`). 
+3.  **Context Gathering:** It silently executes these retrieval tasks in the background, feeding the results back to itself until it has accumulated enough context to fulfill the user's prompt. *No user approval is required for read-only actions.*
+
+### Phase 2: Plan-Mode (Drafting Mutations)
+1.  **Drafting:** Once the AI has the necessary context from Phase 1, it generates the structured `ExecutionPlan` containing only "Mutation" (e.g., `create_channel`) and "Messaging" (e.g., `send_message`) tools. Because it already fetched the data in Phase 1, it can successfully inject IDs, role names, or specific data into the parameters of these subsequent tasks.
+2.  **Review:** The bot sends an Embed explicitly titled **[Plan-Mode]**. It details the overarching plan and lists the sequence of tasks.
+3.  **User Actions (Buttons):**
     *   **Proceed:** Transitions the bot into Execution-Mode.
     *   **Suggest Changes:** Opens a Discord Modal for the admin to type adjustments. 
-        *   *UX Improvement:* The bot will use a **`RevisedPlan`** Pydantic model. This model will include the updated plan *and* an `explanation` field where the AI directly answers the user's questions or explains how the suggestions were incorporated. This provides crucial context before the user accepts the new plan.
+        *   *UX Improvement:** The bot will use a **`RevisedPlan`** Pydantic model. This model will include the updated plan *and* an `explanation` field where the AI directly answers the user's questions or explains how the suggestions were incorporated. This provides crucial context before the user accepts the new plan.
     *   **Cancel:** Aborts the operation and deletes the message.
 
-### Phase 2: Execution-Mode
+### Phase 3: Execution-Mode
 1.  **Initialization:** The bot enters an execution loop, processing tasks sequentially based on their `order` index.
 2.  **Task Verification (Per Task):**
     *   The bot prepares a task-specific embed detailing the current task, the tool being called, and its parameters.

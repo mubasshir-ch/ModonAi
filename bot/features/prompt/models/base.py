@@ -22,3 +22,12 @@ class ExecutionPlan(BaseModel):
 class RevisedPlan(BaseModel):
     explanation: str = Field(..., description="Explanation of how the user's suggestions were incorporated or answers to their questions.")
     plan: ExecutionPlan
+
+class InvestigationStep(BaseModel):
+    thought: str = Field(..., description="The AI's reasoning for choosing this specific retrieval action.")
+    action: str = Field(..., description="The name of the read-only tool to call.")
+    parameters: Dict[str, Any] = Field(..., description="The parameters for the tool.")
+
+class InvestigationFinish(BaseModel):
+    thought: str = Field(..., description="The AI's final thought after gathering all necessary information.")
+    final_context: str = Field(..., description="A comprehensive summary of all relevant data gathered for the planning phase.")

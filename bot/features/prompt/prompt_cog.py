@@ -1,5 +1,6 @@
 import discord
 import logging
+import json
 from discord.ext import commands
 from discord import option
 from .prompt_service import PromptService
@@ -18,25 +19,57 @@ class PromptCog(commands.Cog):
         self.logger.info(f"Received prompt from {ctx.author}: {prompt}")
         await ctx.defer()
         
-        context = self._get_guild_context(ctx.guild)
-        self.logger.debug(f"Guild context: {context}")
+        initial_context = self._get_execution_context(ctx)
         
         try:
-            self.logger.info("Generating execution plan...")
-            plan = await self.service.generate_plan(prompt, context)
+            # Phase 1: Investigation
+            async def update_status(msg: str):
+                await ctx.edit(content=msg)
+
+            await ctx.edit(content="🚀 Starting investigation phase...")
+            gathered_context = await self.service.investigate(prompt, ctx.guild, initial_context, on_step=update_status)
+            self.logger.debug(f"Gathered context: {gathered_context}")
+            
+            # Phase 2: Planning
+            await ctx.edit(content="📝 Drafting final execution plan...")
+            plan = await self.service.generate_plan(prompt, gathered_context)
             self.logger.info("Execution plan generated successfully.")
+            
+            # Phase 3: Review (Plan-Mode)
+            await self._enter_plan_mode(ctx, plan)
         except Exception as e:
-            self.logger.error(f"Failed to generate plan: {e}", exc_info=True)
+            self.logger.error(f"Failed to process prompt: {e}", exc_info=True)
             error_msg = str(e)
             if len(error_msg) > 1900:
                 error_msg = error_msg[:1900] + "... (truncated)"
-            await ctx.respond(f"Error generating plan: {error_msg}", ephemeral=True)
-            return
+            await ctx.edit(content=f"Error: {error_msg}")
 
-        await self._enter_plan_mode(ctx, plan)
-
-    def _get_guild_context(self, guild: discord.Guild) -> str:
-        return f"Guild Name: {guild.name}, Member Count: {guild.member_count}"
+    def _get_execution_context(self, ctx: discord.ApplicationContext) -> str:
+        guild = ctx.guild
+        user = ctx.author
+        channel = ctx.channel
+        
+        context_data = {
+            "guild": {
+                "name": guild.name,
+                "id": guild.id,
+                "member_count": guild.member_count
+            },
+            "channel": {
+                "name": channel.name,
+                "id": channel.id,
+                "type": str(channel.type)
+            },
+            "user": {
+                "name": user.name,
+                "id": user.id,
+                "roles": [role.name for role in user.roles if role.name != "@everyone"]
+            },
+            "command": {
+                "name": ctx.command.name
+            }
+        }
+        return json.dumps(context_data, indent=2)
 
     async def _enter_plan_mode(self, ctx: discord.ApplicationContext | discord.Interaction, plan: ExecutionPlan, explanation: str = None):
         embed = create_plan_embed(plan)
