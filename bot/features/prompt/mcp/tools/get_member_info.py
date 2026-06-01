@@ -1,5 +1,6 @@
 import discord
 from pydantic import BaseModel, Field
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class GetMemberInfoParams(BaseModel):
@@ -12,13 +13,9 @@ class GetMemberInfoTool(BaseTool):
     read_only = True
 
     async def execute(self, params: GetMemberInfoParams, guild: discord.Guild):
-        member = guild.get_member(params.member_id)
+        member = await resolve_member(guild, params.member_id)
         if not member:
-            # Try to fetch if not in cache (requires privileged intents)
-            try:
-                member = await guild.fetch_member(params.member_id)
-            except discord.NotFound:
-                return {"error": f"Member with ID {params.member_id} not found in this server."}
+            return {"error": f"Member with ID {params.member_id} not found in this server."}
 
         return {
             "name": member.name,

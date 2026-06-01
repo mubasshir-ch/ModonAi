@@ -1,6 +1,7 @@
 import discord
 from typing import Union
 from pydantic import BaseModel
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class DeleteParams(BaseModel):
@@ -12,7 +13,6 @@ class DeleteChannelTool(BaseTool):
     schema = DeleteParams
 
     async def execute(self, params: DeleteParams, guild: discord.Guild):
-        target = params.name_or_id
-        channel = discord.utils.get(guild.channels, name=target) if isinstance(target, str) else guild.get_channel(target)
+        channel = await resolve_channel(guild, params.name_or_id)
         if channel:
             await channel.delete()

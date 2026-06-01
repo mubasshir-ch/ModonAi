@@ -20,6 +20,24 @@ from .list_invites import ListInvitesTool
 from .send_message import SendMessageTool
 from .send_embed_message import SendEmbedMessageTool
 from .send_dm import SendDMTool
+from .get_message import GetMessageTool
+from .list_pinned_messages import ListPinnedMessagesTool
+from .search_messages import SearchMessagesTool
+from .delete_message import DeleteMessageTool
+from .purge_messages import PurgeMessagesTool
+from .edit_message import EditMessageTool
+from .update_role import UpdateRoleTool
+from .update_channel import UpdateChannelTool
+from .move_channel import MoveChannelTool
+from .update_server_settings import UpdateServerSettingsTool
+from .kick_member import KickMemberTool
+from .ban_member import BanMemberTool
+from .timeout_member import TimeoutMemberTool
+from .remove_timeout import RemoveTimeoutTool
+from .create_webhook import CreateWebhookTool
+from .delete_webhook import DeleteWebhookTool
+from .create_forum_thread import CreateForumThreadTool
+from .create_invite import CreateInviteTool
 
 __all__ = [
     "CreateRoleTool",
@@ -43,5 +61,23 @@ __all__ = [
     "ListInvitesTool",
     "SendMessageTool",
     "SendEmbedMessageTool",
-    "SendDMTool"
+    "SendDMTool",
+    "GetMessageTool",
+    "ListPinnedMessagesTool",
+    "SearchMessagesTool",
+    "DeleteMessageTool",
+    "PurgeMessagesTool",
+    "EditMessageTool",
+    "UpdateRoleTool",
+    "UpdateChannelTool",
+    "MoveChannelTool",
+    "UpdateServerSettingsTool",
+    "KickMemberTool",
+    "BanMemberTool",
+    "TimeoutMemberTool",
+    "RemoveTimeoutTool",
+    "CreateWebhookTool",
+    "DeleteWebhookTool",
+    "CreateForumThreadTool",
+    "CreateInviteTool"
 ]

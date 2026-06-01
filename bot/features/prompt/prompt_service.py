@@ -5,153 +5,110 @@ import logging
 import litellm
 from litellm import completion
 from typing import List, Optional, Union, Dict, Any, Callable
-from .models.base import ExecutionPlan, RevisedPlan, Task, InvestigationStep, InvestigationFinish
+from .models.base import BroadPlan, RevisedBroadPlan, ChecklistTask, AgentStepResponse
 from .mcp import registry
 
 class PromptService:
     def __init__(self, model: str = None):
-        self.model = model or os.getenv("LLM_MODEL", "github/gpt-4o-mini")
+        self.model = model or os.getenv("LLM_MODEL", "vertex_ai/gemini-2.0-flash-exp")
         
-        self.api_key = os.getenv("GITHUB_API_KEY") or os.getenv("LLM_API_KEY")
-        if self.api_key:
-            os.environ["GITHUB_API_KEY"] = self.api_key
+        # Determine the correct API key/auth based on the provider
+        if self.model.startswith("gemini/"):
+            self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
+            if self.api_key:
+                os.environ["GEMINI_API_KEY"] = self.api_key
+        elif self.model.startswith("vertex_ai/"):
+            # Vertex AI uses GOOGLE_APPLICATION_CREDENTIALS or gcloud auth, no explicit API key needed
+            self.api_key = None 
+        else:
+            self.api_key = os.getenv("GITHUB_API_KEY") or os.getenv("LLM_API_KEY")
+            if self.api_key:
+                os.environ["GITHUB_API_KEY"] = self.api_key
         
         self.logger = logging.getLogger("modonai.prompt_service")
 
         if os.getenv("LITELLM_DEBUG") == "True":
             litellm._turn_on_debug()
-            self.logger.info("LiteLLM debug mode enabled.")
         
         self.client = instructor.from_litellm(completion)
         self.logger.info(f"PromptService initialized with model: {self.model}")
 
-    def _get_system_prompt(self, read_only: bool = None) -> str:
-        base_rules = """
-        You are ModonAi, a professional Discord server administrator AI.
-        Your goal is to parse user instructions and manage a Discord server.
+    def _get_agent_system_prompt(self) -> str:
+        return f"""
+        You are ModonAi, a professional Discord server administrator agent.
+        Your goal is to execute a mission described by the user.
 
-        General Rules:
-        1. Accuracy: Use the exact IDs and names retrieved from the server.
-        2. Dependency Management: Ensure roles and categories exist before using them.
-        3. Human Readable: Provide clear explanations and summaries.
-        4. Parameter Nesting: ALL action-specific fields MUST be nested inside the 'parameters' dictionary.
+        MISSION MANAGEMENT:
+        - You maintain a dynamic Checklist of high-level objectives.
+        - Every step, you must update the status of your objectives (pending/done/failed).
+        - A task is ONLY 'done' if you have successfully executed the tool required for it.
+
+        REASONING & EXECUTION:
+        1. Public Thoughts: Your `thought` field is visible to the user as a status update. Use it to explain your reasoning and progress.
+        2. Action vs. Thought: Thinking about an action (e.g., "I will now send a message") is NOT the same as performing it. To actually perform an action, you MUST use `tool_call`.
+        3. No Repetition: Do not repeat the same thought or reasoning. Each step must progress the mission.
+        4. Tool Usage: Use retrieval tools to gather data, mutation tools to change the server, and messaging tools (`send_message`, `send_embed_message`) to provide final answers or complex reports.
+        5. Stop Condition: Set `is_goal_reached` to True only when the entire checklist is complete and the user has been fully informed of the results.
+
+        {registry.get_system_prompt_addition()}
         """
-        
-        if read_only is True:
-            investigation_rules = """
-            PHASE 1: INVESTIGATION
-            You are currently in the investigation phase. Your goal is to gather all necessary information (IDs, roles, channel structures, etc.) 
-            required to fulfill the user's request. 
-            - You can ONLY use READ-ONLY tools.
-            - If you have all the information you need, use the 'InvestigationFinish' model to provide the final context.
-            - Be thorough. If a user asks to modify a channel, first find that channel's ID.
-            """
-            return base_rules + investigation_rules + "\n" + registry.get_system_prompt_addition(read_only=True)
-            
-        elif read_only is False:
-            planning_rules = """
-            PHASE 2: PLANNING
-            You have already gathered the necessary context. Now, create a structured execution plan.
-            - You can ONLY use MUTATION and MESSAGING tools.
-            - Do not include retrieval tools in the final plan.
-            - Use the context provided to inject real IDs and names into the parameters.
-            """
-            return base_rules + planning_rules + "\n" + registry.get_system_prompt_addition(read_only=False)
 
-        return base_rules + "\n" + registry.get_system_prompt_addition()
-
-    async def investigate(self, user_prompt: str, guild: discord.Guild, initial_context: str = "", on_step: Optional[Callable[[str], Any]] = None) -> str:
-        """
-        Runs an autonomous retrieval loop to gather context.
-        on_step: Optional async callback function that takes a string status message.
-        """
-        self.logger.info("Starting investigation phase...")
-        history = [
-            {"role": "system", "content": self._get_system_prompt(read_only=True)},
-            {"role": "user", "content": f"Initial Context:\n{initial_context}\n\nUser Request: {user_prompt}"}
-        ]
-
-        max_steps = 5
-
-        for step in range(max_steps):
-            self.logger.info(f"Investigation Step {step + 1}/{max_steps}...")
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                response_model=Union[InvestigationStep, InvestigationFinish],
-                messages=history,
-            )
-
-            if isinstance(response, InvestigationFinish):
-                self.logger.info(f"Investigation complete: {response.thought}")
-                if on_step:
-                    await on_step(f"✅ Investigation complete: {response.thought}")
-                return response.final_context
-
-            # Execute the read-only tool
-            self.logger.info(f"AI Thinks: {response.thought}")
-            self.logger.info(f"Calling tool: {response.action}")
-            
-            if on_step:
-                await on_step(f"🔍 **Step {step + 1}:** {response.thought}\n*Calling tool: `{response.action}`*")
-            
-            tool = registry.get_tool(response.action)
-            if not tool or not tool.read_only:
-                result = f"Error: Tool '{response.action}' is not available or is not read-only."
-            else:
-                try:
-                    result = await tool.execute(tool.schema(**response.parameters), guild)
-                except Exception as e:
-                    result = f"Error executing tool: {e}"
-
-            self.logger.debug(f"Tool Result: {result}")
-            
-            history.append({"role": "assistant", "content": response.model_dump_json()})
-            history.append({"role": "user", "content": f"Tool Result:\n{result}"})
-            
-        self.logger.warning("Investigation reached max steps.")
-        return "Max investigation steps reached. Context might be incomplete."
-
-    async def generate_plan(self, user_prompt: str, gathered_context: str) -> ExecutionPlan:
-        self.logger.info("Generating final execution plan...")
+    async def generate_broad_plan(self, user_prompt: str, context: str = "") -> BroadPlan:
+        """Initial high-level goal setting."""
+        self.logger.info("Generating broad plan...")
         messages = [
-            {"role": "system", "content": self._get_system_prompt(read_only=False)},
-            {"role": "user", "content": f"Gathered Context:\n{gathered_context}\n\nUser Instruction: {user_prompt}"}
+            {"role": "system", "content": "You are a strategic planner. Break down the user's request into high-level objectives. Do not decide on tool parameters yet."},
+            {"role": "user", "content": f"Context:\n{context}\n\nRequest: {user_prompt}"}
         ]
-
-        try:
-            plan = self.client.chat.completions.create(
-                model=self.model,
-                response_model=ExecutionPlan,
-                messages=messages,
-            )
-            return plan
-        except Exception as e:
-            self.logger.error(f"LLM generation failed: {e}")
-            raise e
-
-    async def refine_plan(self, original_plan: ExecutionPlan, suggestion: str, context: str = "") -> RevisedPlan:
-        messages = [
-            {"role": "system", "content": self._get_system_prompt()},
-            {"role": "user", "content": f"Context:\n{context}\n\nCurrent Plan: {original_plan.model_dump_json()}\n\nSuggestion: {suggestion}\n\nUpdate the plan accordingly and provide an explanation."}
-        ]
-
-        revised = self.client.chat.completions.create(
+        return self.client.chat.completions.create(
             model=self.model,
-            response_model=RevisedPlan,
+            response_model=BroadPlan,
             messages=messages,
         )
-        return revised
 
-    async def execute_task(self, task: Task, guild: discord.Guild):
-        action = task.action
+    async def refine_broad_plan(self, original_plan: BroadPlan, suggestion: str, context: str = "") -> RevisedBroadPlan:
+        """Refines the objectives based on user feedback."""
+        messages = [
+            {"role": "system", "content": "Update the mission objectives based on user feedback."},
+            {"role": "user", "content": f"Context:\n{context}\n\nCurrent Objectives: {original_plan.model_dump_json()}\n\nSuggestion: {suggestion}"}
+        ]
+        return self.client.chat.completions.create(
+            model=self.model,
+            response_model=RevisedBroadPlan,
+            messages=messages,
+        )
+
+    async def run_agent_step(self, user_prompt: str, history: List[Dict], context: str) -> AgentStepResponse:
+        """A single step in the agentic execution loop."""
+        full_history = [
+            {"role": "system", "content": self._get_agent_system_prompt()},
+            {"role": "user", "content": f"Initial Request: {user_prompt}\n\nCurrent Context: {context}"}
+        ] + history
+
+        return self.client.chat.completions.create(
+            model=self.model,
+            response_model=AgentStepResponse,
+            messages=full_history,
+        )
+
+    async def execute_tool(self, action: str, parameters: Any, guild: discord.Guild) -> Any:
+        """Executes any MCP tool."""
         tool = registry.get_tool(action)
-        
         if not tool:
-            raise ValueError(f"Tool '{action}' is not registered or supported.")
-            
-        params = task.parameters
-        if isinstance(params, dict):
-            params = tool.schema(**params)
+            return f"Error: Tool '{action}' is not registered."
+        
+        try:
+            # Instructor might have already instantiated the specific model
+            if isinstance(parameters, tool.schema):
+                params_obj = parameters
+            elif isinstance(parameters, dict):
+                params_obj = tool.schema(**parameters)
+            else:
+                # Fallback: try to convert to dict first if it's some other Pydantic model
+                data = parameters.model_dump() if hasattr(parameters, "model_dump") else parameters
+                params_obj = tool.schema(**data)
 
-        return await tool.execute(params, guild)
+            return await tool.execute(params_obj, guild)
+        except Exception as e:
+            self.logger.error(f"Tool execution failed: {e}")
+            return f"Error executing tool {action}: {str(e)[:1900]}"

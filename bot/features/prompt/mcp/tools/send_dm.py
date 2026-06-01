@@ -1,6 +1,7 @@
 import discord
 from pydantic import BaseModel, Field
 from typing import Union
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class SendDMParams(BaseModel):
@@ -13,11 +14,7 @@ class SendDMTool(BaseTool):
     schema = SendDMParams
 
     async def execute(self, params: SendDMParams, guild: discord.Guild):
-        member = None
-        if isinstance(params.member_name_or_id, int):
-            member = guild.get_member(params.member_name_or_id) or await guild.fetch_member(params.member_name_or_id)
-        else:
-            member = discord.utils.get(guild.members, name=params.member_name_or_id)
+        member = await resolve_member(guild, params.member_name_or_id)
 
         if not member:
             return {"error": f"Member '{params.member_name_or_id}' not found."}

@@ -3,7 +3,7 @@ from typing import List
 from pydantic import BaseModel, Field
 from ..base import BaseTool
 from ...models.shared import PermissionOverwrite
-from ..utils import process_overwrites
+from ..utils import process_overwrites, resolve_channel, resolve_member, resolve_role
 
 class CreateCategoryParams(BaseModel):
     name: str

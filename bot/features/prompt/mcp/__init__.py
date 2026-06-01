@@ -21,7 +21,25 @@ from .tools import (
     ListInvitesTool,
     SendMessageTool,
     SendEmbedMessageTool,
-    SendDMTool
+    SendDMTool,
+    GetMessageTool,
+    ListPinnedMessagesTool,
+    SearchMessagesTool,
+    DeleteMessageTool,
+    PurgeMessagesTool,
+    EditMessageTool,
+    UpdateRoleTool,
+    UpdateChannelTool,
+    MoveChannelTool,
+    UpdateServerSettingsTool,
+    KickMemberTool,
+    BanMemberTool,
+    TimeoutMemberTool,
+    RemoveTimeoutTool,
+    CreateWebhookTool,
+    DeleteWebhookTool,
+    CreateForumThreadTool,
+    CreateInviteTool
 )
 
 # Register all tools
@@ -47,5 +65,23 @@ registry.register(ListInvitesTool())
 registry.register(SendMessageTool())
 registry.register(SendEmbedMessageTool())
 registry.register(SendDMTool())
+registry.register(GetMessageTool())
+registry.register(ListPinnedMessagesTool())
+registry.register(SearchMessagesTool())
+registry.register(DeleteMessageTool())
+registry.register(PurgeMessagesTool())
+registry.register(EditMessageTool())
+registry.register(UpdateRoleTool())
+registry.register(UpdateChannelTool())
+registry.register(MoveChannelTool())
+registry.register(UpdateServerSettingsTool())
+registry.register(KickMemberTool())
+registry.register(BanMemberTool())
+registry.register(TimeoutMemberTool())
+registry.register(RemoveTimeoutTool())
+registry.register(CreateWebhookTool())
+registry.register(DeleteWebhookTool())
+registry.register(CreateForumThreadTool())
+registry.register(CreateInviteTool())
 
 __all__ = ["registry"]

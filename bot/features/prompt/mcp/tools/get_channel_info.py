@@ -1,5 +1,6 @@
 import discord
 from pydantic import BaseModel, Field
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class GetChannelInfoParams(BaseModel):
@@ -12,7 +13,7 @@ class GetChannelInfoTool(BaseTool):
     read_only = True
 
     async def execute(self, params: GetChannelInfoParams, guild: discord.Guild):
-        channel = guild.get_channel(params.channel_id)
+        channel = await resolve_channel(guild, params.channel_id)
         if not channel:
             return {"error": f"Channel with ID {params.channel_id} not found in this server."}
 

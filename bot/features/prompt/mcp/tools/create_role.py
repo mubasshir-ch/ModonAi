@@ -1,6 +1,7 @@
 import discord
 from typing import Optional, List
 from pydantic import BaseModel, Field
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class CreateRoleParams(BaseModel):

@@ -1,6 +1,7 @@
 import discord
 from pydantic import BaseModel, Field
 from typing import Optional, Union
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class ListMembersParams(BaseModel):

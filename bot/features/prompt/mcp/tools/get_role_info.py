@@ -1,5 +1,6 @@
 import discord
 from pydantic import BaseModel, Field
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class GetRoleInfoParams(BaseModel):
@@ -12,7 +13,7 @@ class GetRoleInfoTool(BaseTool):
     read_only = True
 
     async def execute(self, params: GetRoleInfoParams, guild: discord.Guild):
-        role = guild.get_role(params.role_id)
+        role = await resolve_role(guild, params.role_id)
         if not role:
             return {"error": f"Role with ID {params.role_id} not found in this server."}
 

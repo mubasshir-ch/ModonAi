@@ -6,10 +6,11 @@ class MCPRegistry:
         self.tools: Dict[str, BaseTool] = {}
 
     def register(self, tool: BaseTool):
-        self.tools[tool.name] = tool
+        # Store using lowercase keys for case-insensitive lookup
+        self.tools[tool.name.lower()] = tool
 
     def get_tool(self, name: str) -> BaseTool:
-        return self.tools.get(name)
+        return self.tools.get(name.lower())
 
     def get_all_tools(self, read_only: bool = None) -> List[BaseTool]:
         if read_only is None:

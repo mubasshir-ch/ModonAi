@@ -1,6 +1,7 @@
 import discord
 from pydantic import BaseModel, Field
 from typing import Union
+from ..utils import resolve_channel, resolve_member, resolve_role
 from ..base import BaseTool
 
 class ReadMessagesParams(BaseModel):
@@ -14,11 +15,7 @@ class ReadMessagesTool(BaseTool):
     read_only = True
 
     async def execute(self, params: ReadMessagesParams, guild: discord.Guild):
-        channel = None
-        if isinstance(params.channel_name_or_id, int):
-            channel = guild.get_channel(params.channel_name_or_id)
-        else:
-            channel = discord.utils.get(guild.text_channels, name=params.channel_name_or_id)
+        channel = await resolve_channel(guild, params.channel_name_or_id)
         
         if not channel or not isinstance(channel, discord.TextChannel):
             return {"error": f"Text channel '{params.channel_name_or_id}' not found."}

@@ -15,13 +15,17 @@ This document tracks the Discord Model Context Protocol (MCP) tools that need to
 - [x] `list_guilds` (List all servers the bot is in)
 - [x] `list_emojis` (List all emojis in the server)
 - [x] `list_invites` (List all active invites in the server)
+- [x] `get_message` (Get a specific message by ID)
+- [x] `list_pinned_messages` (List all pins in a channel)
+- [x] `search_messages` (Basic keyword search in recent history)
 
 ## High Priority (Messaging & Interaction)
-- [ ] `send_message` (Send a text message to a channel)
-- [ ] `send_embed_message` (Send a rich embed message to a channel)
-- [ ] `send_dm` (Send a private message to a user)
-- [ ] `edit_message` (Edit a message sent by the bot)
-- [ ] `delete_message` (Delete a specific message)
+- [x] `send_message` (Send a text message to a channel)
+- [x] `send_embed_message` (Send a rich embed message to a channel)
+- [x] `send_dm` (Send a private message to a user)
+- [x] `edit_message` (Edit a message sent by the bot)
+- [x] `delete_message` (Delete a specific message)
+- [x] `purge_messages` (Bulk delete messages in a channel)
 
 ## High Priority (Server Structure)
 - [x] `create_role`
@@ -29,25 +33,24 @@ This document tracks the Discord Model Context Protocol (MCP) tools that need to
 - [x] `create_channel` (Text & Voice)
 - [x] `delete_channel`
 - [x] `delete_role`
-- [ ] `update_role` (Modify permissions, color, name)
-- [ ] `update_channel` (Modify permissions, topic, name)
-- [ ] `move_channel` (Change category or position)
-- [ ] `update_server_settings` (Name, icon, verification level)
+- [x] `update_role` (Modify permissions, color, name)
+- [x] `update_channel` (Modify permissions, topic, name)
+- [x] `move_channel` (Change category or position)
+- [x] `update_server_settings` (Name, icon, verification level)
 
 ## Medium Priority (Moderation & Membership)
 - [x] `assign_role`
 - [x] `remove_role`
-- [ ] `kick_member`
-- [ ] `ban_member`
-- [ ] `timeout_member` (Timeout for a specific duration)
-- [ ] `remove_timeout`
-- [ ] `purge_messages` (Bulk delete messages in a channel)
+- [x] `kick_member`
+- [x] `ban_member`
+- [x] `timeout_member` (Timeout for a specific duration)
+- [x] `remove_timeout`
 
 ## Low Priority (Advanced Features)
-- [ ] `create_webhook`
-- [ ] `delete_webhook`
-- [ ] `create_forum_thread`
-- [ ] `create_invite`
+- [x] `create_webhook`
+- [x] `delete_webhook`
+- [x] `create_forum_thread`
+- [x] `create_invite`
 
 ## Implementation Notes
 1. Define the Pydantic schema in the tool's specific module.
