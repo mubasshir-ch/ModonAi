@@ -56,7 +56,7 @@ class TaskVerificationView(ui.View):
     async def cancel(self, button: ui.Button, interaction: discord.Interaction):
         await self.on_cancel(interaction)
 
-def truncate(text: str, limit: int = 1024) -> str:
+def truncate(text: str, limit: int = 1024) -> str: # TODO: Move to utils
     if len(text) <= limit:
         return text
     return text[:limit-3] + "..."
